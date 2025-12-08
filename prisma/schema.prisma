@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  password       String
+  firstName      String
+  lastName       String
+  phone          String?
+  avatar         String?
+  role           Role            @default(STUDENT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  enrollments    Enrollment[]
+  certificates   Certificate[]
+  progress       LessonProgress[]
+  testimonials   Testimonial[]
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model Course {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  description     String
+  longDescription String?
+  thumbnail       String?
+  price           Float
+  salePrice       Float?
+  duration        String
+  level           CourseLevel
+  category        String
+  features        String
+  outcomes        String
+  isPublished     Boolean       @default(false)
+  isFeatured      Boolean       @default(false)
+  order           Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  modules         Module[]
+  enrollments     Enrollment[]
+  certification   Certification? @relation(fields: [certificationId], references: [id])
+  certificationId String?
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+model Module {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Lesson {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  content     String?
+  videoUrl    String?
+  duration    Int
+  order       Int
+  moduleId    String
+  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  resources   Resource[]
+  progress    LessonProgress[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  title     String
+  type      ResourceType
+  url       String
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+enum ResourceType {
+  PDF
+  WORKSHEET
+  AUDIO
+  VIDEO
+  LINK
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model Enrollment {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status       EnrollmentStatus @default(ACTIVE)
+  enrolledAt   DateTime         @default(now())
+  completedAt  DateTime?
+  expiresAt    DateTime?
+
+  @@unique([userId, courseId])
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model Certification {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  description  String
+  requirements String
+  benefits     String
+  price        Float
+  salePrice    Float?
+  duration     String
+  thumbnail    String?
+  isActive     Boolean       @default(true)
+  courses      Course[]
+  certificates Certificate[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Certificate {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificationId String
+  certification   Certification @relation(fields: [certificationId], references: [id])
+  certificateNumber String      @unique
+  issuedAt        DateTime      @default(now())
+  expiresAt       DateTime?
+  pdfUrl          String?
+
+  @@unique([userId, certificationId])
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  name      String
+  role      String?
+  location  String?
+  content   String
+  rating    Int      @default(5)
+  avatar    String?
+  isApproved Boolean @default(false)
+  isFeatured Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
