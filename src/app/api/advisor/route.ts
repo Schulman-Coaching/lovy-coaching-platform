@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 const SYSTEM_INSTRUCTION = `
@@ -12,6 +11,12 @@ unless the visitor asks for more detail. Do not invent dates, prices,
 accreditation, scholarships, or policies. When information is unavailable,
 direct the visitor to admissions through the contact page.
 `;
+
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+};
 
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -37,17 +42,46 @@ export async function POST(request: Request) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: message.trim(),
-      config: { systemInstruction: SYSTEM_INSTRUCTION },
-    });
+    const providerResponse = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: SYSTEM_INSTRUCTION }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: message.trim() }],
+            },
+          ],
+        }),
+        cache: "no-store",
+      },
+    );
+
+    if (!providerResponse.ok) {
+      console.error("Advisor provider error", providerResponse.status);
+      return NextResponse.json(
+        { error: "The advisor is temporarily unavailable. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    const data = (await providerResponse.json()) as GeminiResponse;
+    const answer = data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim();
 
     return NextResponse.json({
       answer:
-        response.text ??
-        "I could not answer that question. Please contact admissions.",
+        answer || "I could not answer that question. Please contact admissions.",
     });
   } catch (error) {
     console.error("Advisor request failed", error);
